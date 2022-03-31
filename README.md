@@ -13,25 +13,45 @@ gitlab-flask-ansible-delivery-system
 
 
 项目目录解读：
+
 gitlab-flask-ansible-delivery-system/systemdService
+
 可执行程序的systemd service文件所在目录。这个项目里程序使用systemd进行管理。
+
 目录里分别有：
+
 kkinterface.service
+
 kkagg.service
+
 kkpost.service
+
 三个systemd service文件，分别对应kkinterface，kkagg，kkpost三个可执行程序
 
 
+
 gitlab-flask-ansible-delivery-system/bin    可执行程序所在目录（这里因为网络原因没有upload编译好的二进制go程序，直接放的go源代码作为示范例子）
+
 目录里分别有：
+
 kkinterface
+
 kkagg
+
 kkpost
+
 三个示范可执行程序
 
+
 gitlab-flask-ansible-delivery-system/conf   项目配置文件所在目录
+
 目录里分别有：
+
 kkinterface.yaml
+
 kkagg.yaml
+
 kkpost.yaml
+
 三个配置文件，分别与bin目录里的三个可执行程序相对应
+
