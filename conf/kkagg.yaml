@@ -1,0 +1,19 @@
+alert:
+  wxwork_key: ''
+  wxwork_mentioned: ['']
+log:
+  level: "info"
+  out_put: [ 'kafka:///?topic=','stdout' ]
+redis:
+  addrs: [':6379']
+  pass: ''
+mongo_dsn: 'mongodb://'
+listen: '0.0.0.0:80'
+trace:
+  trace_host: ''
+  service_name: ''
+etcd:
+  endpoints: [':2379',':2379',':2379']
+  user: ''
+  password: ''
+  enginePath: '/config/engines/v1'
