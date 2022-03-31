@@ -1,0 +1,12 @@
+[Unit]
+Description=kkpost process
+
+[Service]
+User=kk
+Group=kk
+Type=simple
+Restart=on-failure
+ExecStart=/opt/kk/bin/kkpost  --conf=/opt/kk/conf/kkpost.yaml
+
+[Install]
+WantedBy=multi-user.target
