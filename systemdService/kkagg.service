@@ -1,0 +1,12 @@
+[Unit]
+Description=kkagg process
+
+[Service]
+User=kk
+Group=kk
+Type=simple
+Restart=on-failure
+ExecStart=/opt/kk/bin/kkagg  --conf=/opt/kk/conf/kkagg.yaml
+
+[Install]
+WantedBy=multi-user.target
