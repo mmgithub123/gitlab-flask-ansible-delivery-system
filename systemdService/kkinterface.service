@@ -1,0 +1,13 @@
+[Unit]
+Description=kkinterface process
+
+[Service]
+User=kk
+Group=kk
+Type=simple
+Restart=on-failure
+ExecStart=/opt/kk/bin/kkinterface  --conf=/opt/kk/conf/kkinterface.yaml
+
+[Install]
+WantedBy=multi-user.target
+
