@@ -63,3 +63,11 @@ engine-nano
 engine-sangfor
 engine-rising
 
+[bin-list]
+bin-csfront
+bin-csadmin
+bin-csmetric
+bin-csinterface
+bin-csagg
+bin-cspost
+bin-cswatch
