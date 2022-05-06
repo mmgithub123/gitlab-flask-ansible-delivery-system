@@ -14,49 +14,6 @@ valid_ip = ''
 
 wechat_robot_webhook_url = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key='
 
-windows_engine_list=[
-    'ahnlab',
-    'alyac',
-    'gridinsoft',
-    'tws',
-    'systweak',
-    'tachyon',
-    'gdata',
-    'panda',
-    'kingsoft',
-    'baidu',
-    'emsisoft',
-    '360',
-    'comodo',
-    'quickheal',
-    'meta',
-    'xvirus',
-    'jiangmin',
-    'antiy',
-    'sunbelt',
-    'avast',
-    'nano',
-    'sangfor',
-    'rising'
-]
-
-linux_engine_list=[
-'arcabit',
-'antivir',
-'clamav',
-'cyren',
-'drweb',
-'ikarus',
-'k7',
-'fprot',
-'fortinet',
-'fsecure',
-'mcafee',
-'trend',
-'virusbuster',
-'vba'
-]
-
 
 base_dir = '/home/devops/deploy/'
 repo_dir = '/home/devops/deploy/cloudscan-deploy/'
@@ -68,34 +25,57 @@ repo_script_dir = repo_dir + 'script/'
 repo_bin_dir = repo_dir + 'bin/'
 prev_repo_bin_dir = prev_repo_dir + 'bin/'
 
+repo_timer_script_dir = repo_dir + 'timerScript/'
+prev_repo_timer_script_dir = prev_repo_dir + 'timerScript/'
+
 repo_conf_dir = repo_dir + 'conf/'
 prev_repo_conf_dir = prev_repo_dir + 'conf/'
 
 repo_systemd_service_dir = repo_dir + 'systemdService/'
 prev_repo_systemd_service_dir = prev_repo_dir + 'systemdService/'
 
+repo_timer_service_dir = repo_dir + 'timerService/'
+prev_repo_timer_service_dir = prev_repo_dir + 'timerService/'
+
 hosts_dir = repo_dir + 'hosts'
 prev_hosts_dir = prev_repo_dir + 'hosts'
 
 
 git_url = ''
-ssh_key = '/home/devops/.ssh/id_rsa'
+ssh_key = ''
+
+def get_entity_from_hosts(hosts_dir, entity_name):
+    hosts_config = configparser.ConfigParser(allow_no_value=True)
+    hosts_config.read(hosts_dir)
+    entity_config = hosts_config.items(entity_name)
+    entity_list = []
+    if entity_name == "bin-list":
+        for entity_tuple in entity_config:
+            entity_list.append(entity_tuple[0][4:])
+        return entity_list
+
+    if entity_name == "script-online-deployment" or entity_name == "all-linux":
+        for entity_tuple in entity_config:
+            entity_list.append(entity_tuple[0])
+        return entity_list
+
+    if entity_name == "windows-engine-list" or entity_name == "linux-engine-list":
+        for entity_tuple in entity_config:
+            entity_list.append(entity_tuple[0][7:])
+        return entity_list
 
 
-hosts_config = configparser.ConfigParser(allow_no_value=True)
-hosts_config.read(hosts_dir)
-linux_engine_config = hosts_config.items('linux-engine-list')
-windows_engine_config = hosts_config.items('windows-engine-list')
-linux_engine_list = []
-windows_engine_list = []
-for linux_config_tuple in linux_engine_config:
-    linux_engine_list.append(linux_config_tuple[0][7:])
-print("the linux engine list is: ")
+
+
+linux_engine_list = get_entity_from_hosts(hosts_dir, 'linux-engine-list')
+windows_engine_list = get_entity_from_hosts(hosts_dir, 'windows-engine-list')
+bin_list = get_entity_from_hosts(hosts_dir, 'bin-list')
+script_dir_list = get_entity_from_hosts(hosts_dir, 'script-online-deployment')
 print(linux_engine_list)
-for windows_config_tuple in windows_engine_config:
-    windows_engine_list.append(windows_config_tuple[0][7:])
-print("the windows engine list is: ")
 print(windows_engine_list)
+print(bin_list)
+print(script_dir_list)
+
 
 def send_wechat_robot_message(message):
     headers = {'Content-Type': 'application/json'}
@@ -106,7 +86,7 @@ def send_wechat_robot_message(message):
             }
     }
     response = requests.post(url=wechat_robot_webhook_url, headers=headers, data=json.dumps(data))
-    
+
     if response.status_code != 200:
         print("send wechat robot message error")
 
@@ -122,9 +102,9 @@ def get_diff_hosts(now_hosts, prev_hosts):
 
 # write into ini
 # config.add_section('login') # add new section
-# config.set('login','username','admin')  
-# config.set('login','password','123456') 
-# config.write(open(path,'a'))            
+# config.set('login','username','admin')
+# config.set('login','password','123456')
+# config.write(open(path,'a'))
 
 
 # get file md5
@@ -149,44 +129,102 @@ def make_online_project_dir(*ip):
     #online_bin_dir = online_host_config.get('projectconf','online_bin_dir')
     #online_conf_dir = online_host_config.get('projectconf','online_conf_dir')
     #project_base = online_host_config.get('projectconf','project_base')
-    online_bin_dir = ''
-    online_conf_dir = ''
-    online_scand_conf_dir = ''
-    project_base = ''
-    scand_dir = ''
-    
+    online_bin_dir = '/opt/cloudscan/gobin'
+    online_conf_dir = '/opt/cloudscan/conf'
+    online_scand_conf_dir = '/opt/cloudscan/conf/conf'
+    project_base = '/opt/cloudscan'
+    scand_dir = '/data/scandir'
+    names =globals()
+    online_dir_list = get_entity_from_hosts(hosts_dir, 'script-online-deployment')
+    for online_dir in online_dir_list:
+        dir_name_value_list = online_dir.split("-")
+        names[dir_name_value_list[0]] = dir_name_value_list[1]
+    #print(online_script_dir)
+
     if len(ip) > 0:
         # deploy for ip list
         for ip_str in ip[0]:
-            system_command_str = "ansible " + ip_str + " -m shell -a \" mkdir -p " + online_bin_dir +";mkdir -p "+ online_conf_dir +";mkdir -p "+ online_scand_conf_dir +";mkdir -p "+ scand_dir +";chmod -R 777 "+ scand_dir +";chown -R app:app "+ project_base +" \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+            system_command_str = "ansible " + ip_str + " -m shell -a \" mkdir -p " + online_bin_dir +";mkdir -p "+ online_conf_dir +";mkdir -p "+ online_script_dir +";mkdir -p "+ online_scand_conf_dir +";mkdir -p "+ scand_dir +";chmod -R 777 "+ scand_dir +";chown -R app:app "+ project_base +";chown -R app:app "+ online_script_dir +" \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
             print(system_command_str)
             os.system(system_command_str)
-    
+
 
 
 def chown_to_program_user(ansible_group):
-    system_command_str = "ansible " + ansible_group + " -m shell -a \" chown -R app:app /opt/cloudscan \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+    system_command_str = "ansible " + ansible_group + " -m shell -a \" chown -R app:app /opt/cloudscan;chown -R app:app /opt/cloudscan/script \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
     print(system_command_str)
     os.system(system_command_str)
 
 
-#if give second param ip,the go_bin_name is engine name.
 def restart_bin(go_bin_name, *ip):
     if len(ip) > 0:
         for ip_str in ip[0]:
-            # restart for ip list,now we restart only that engine ,the go_bin_name is the engine name
-            system_command_str = "ansible " + ip_str + " -m shell -a 'systemctl restart cs" + go_bin_name + ";systemctl status cs" + go_bin_name + "' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
-            print(system_command_str)
-            os.system(system_command_str)
+            if go_bin_name.find('cs') != 0:#not start with cs
+                system_command_str = "ansible " + ip_str + " -m shell -a 'systemctl restart cs" + go_bin_name + ";systemctl status cs" + go_bin_name + "' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+                print(system_command_str)
+                os.system(system_command_str)
+            else:
+                if go_bin_name == "cspost":
+                    system_command_str = "ansible " + ip_str + " -m shell -a 'for i in {1..6};do sudo systemctl restart cspost@post$i;sudo systemctl status cspost@post$i;done' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+                    print(system_command_str)
+                    os.system(system_command_str)
+                else:
+                    system_command_str = "ansible " + ip_str + " -m shell -a 'systemctl restart " + go_bin_name + ";systemctl status " + go_bin_name + "' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+                    print(system_command_str)
+                    os.system(system_command_str)
     else:
         #go_bin_name is engine name or bin grogram name
-        if go_bin_name.find('cs') == -1:
+        if go_bin_name.find('cs') != 0:#not start with cs
             system_command_str = "ansible " + go_bin_name + " -m shell -a 'systemctl restart cs" + go_bin_name + ";systemctl status cs" + go_bin_name + "' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
             print(system_command_str)
             os.system(system_command_str)
         else:
-            ansible_group = go_bin_name
+            if go_bin_name == "cspost":
+                ansible_group = go_bin_name
+                system_command_str = "ansible " + ansible_group + " -m shell -a 'for i in {1..6};do sudo systemctl restart cspost@post$i;sudo systemctl status cspost@post$i;done' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+                print(system_command_str)
+                os.system(system_command_str)
+            else:
+                ansible_group = go_bin_name
+                system_command_str = "ansible " + ansible_group + " -m shell -a 'systemctl restart " + go_bin_name + ";systemctl status " + go_bin_name + "' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+                print(system_command_str)
+                os.system(system_command_str)
+
+
+def restart_timer_script(service_file_name, *ip):
+    go_bin_name = service_file_name
+    if len(ip) > 0:
+        for ip_str in ip[0]:
+            system_command_str = "ansible " + ip_str + " -m shell -a 'systemctl restart " + go_bin_name + ";systemctl status " + go_bin_name + "' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+            print(system_command_str)
+            os.system(system_command_str)
+    else:
+            ansible_group = service_file_name[0:-6]
             system_command_str = "ansible " + ansible_group + " -m shell -a 'systemctl restart " + go_bin_name + ";systemctl status " + go_bin_name + "' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+            print(system_command_str)
+            os.system(system_command_str)
+
+
+def stop_bin(go_bin_name, *ip):
+    if len(ip) > 0:
+        for ip_str in ip[0]:
+            if go_bin_name == "cspost":
+                system_command_str = "ansible " + ip_str + " -m shell -a 'for i in {1..6};do sudo systemctl stop cspost@post$i;sudo systemctl status cspost@post$i;done' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+                print(system_command_str)
+                os.system(system_command_str)
+            else:
+                system_command_str = "ansible " + ip_str + " -m shell -a 'systemctl stop " + go_bin_name + ";systemctl status " + go_bin_name + "' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+                print(system_command_str)
+                os.system(system_command_str)
+    else:
+        if go_bin_name == "cspost":
+            ansible_group = go_bin_name
+            system_command_str = "ansible " + ansible_group + " -m shell -a 'for i in {1..6};do sudo systemctl stop cspost@post$i;sudo systemctl status cspost@post$i;done' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+            print(system_command_str)
+            os.system(system_command_str)
+        else:
+            ansible_group = go_bin_name
+            system_command_str = "ansible " + ansible_group + " -m shell -a 'systemctl stop " + go_bin_name + ";systemctl status " + go_bin_name + "' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
             print(system_command_str)
             os.system(system_command_str)
 
@@ -211,7 +249,7 @@ def deploy_scand(scand_name):
         os.system("sh "+repo_script_dir+"windows_all_element_per_start_ansible.sh")
     if scand_name == "csscand":
         os.system("sh "+repo_script_dir+"scp_all_linux_bin.sh")
-        os.system("sh "+repo_script_dir+"all_element_per_start_ansible.sh")
+        os.system("sh "+repo_script_dir+"all_element_engine_per_restart_ansible.sh")
 
 
 def deploy_linux_engine_csscand(csscand_name, engine):
@@ -230,7 +268,7 @@ def deploy_bin(go_bin_name, *ip):
             print(system_command_str)
             os.system(system_command_str)
             chown_to_program_user(ip_str)
-            
+
     else:
         ansible_group = go_bin_name
         system_command_str = "ansible " + ansible_group + " -m copy -a \"src='" + repo_bin_dir + go_bin_name + "' dest='/opt/cloudscan/gobin/"+go_bin_name+"' mode='0755'\" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
@@ -238,17 +276,35 @@ def deploy_bin(go_bin_name, *ip):
         os.system(system_command_str)
         chown_to_program_user(ansible_group)
 
+
+def deploy_timer_script_file(go_bin_name, *ip):
+    if len(ip) > 0:
+        # deploy for ip list
+        for ip_str in ip[0]:
+            system_command_str = "ansible " + ip_str + " -m copy -a \"src='" + repo_timer_script_dir + go_bin_name + "' dest='"+online_script_dir+""+go_bin_name+"' mode='0755'\" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+            print(system_command_str)
+            os.system(system_command_str)
+            chown_to_program_user(ip_str)
+
+    else:
+        ansible_group = go_bin_name[:-3]
+        system_command_str = "ansible " + ansible_group + " -m copy -a \"src='" + repo_timer_script_dir + go_bin_name + "' dest='"+online_script_dir+""+go_bin_name+"' mode='0755'\" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+        print(system_command_str)
+        os.system(system_command_str)
+        chown_to_program_user(ansible_group)
+
+
 def deploy_windows_bin(bin_name, engine_name):
     system_command_str = "ansible "+engine_name+" -m win_copy -a 'src=" + repo_bin_dir + bin_name + " dest=D:\\\\v0.0.0\\\\app\\\\csscand.exe'"
     print(system_command_str)
-    os.system(system_command_str) 
-    
+    os.system(system_command_str)
+
 
 def restart_windows_bin(engine_name):
     system_command_str = "ansible "+engine_name+" -m win_shell -a 'd:\\v0.0.0\\supervisord.exe ctl start "+engine_name+" /u csscand /P g575JwqwJkLDBpbq'"
     print(system_command_str)
-    os.system(system_command_str) 
-    
+    os.system(system_command_str)
+
 
 def stop_windows_bin(engine_name):
     system_command_str = "ansible "+engine_name+" -m win_shell -a 'd:\\v0.0.0\\supervisord.exe ctl stop "+engine_name+" /u csscand /P g575JwqwJkLDBpbq'"
@@ -256,11 +312,11 @@ def stop_windows_bin(engine_name):
     os.system(system_command_str)
 
 
-def restart_csscand_engine_bin(engine_name):  
+def restart_csscand_engine_bin(engine_name):
     system_command_str = "ansible " + engine_name + " -m shell -a 'systemctl restart cs" + engine_name + ";systemctl status cs" + engine_name + "' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
     print(system_command_str)
     os.system(system_command_str)
- 
+
 
 
 def deploy_windows_conf_file(conf_file_name, *engine_name):
@@ -268,18 +324,26 @@ def deploy_windows_conf_file(conf_file_name, *engine_name):
         # deploy just some engine
         system_command_str = "ansible "+engine_name[0]+" -m win_copy -a 'src=" + repo_conf_dir + conf_file_name + " dest=D:\\\\v0.0.0\\\\supervisord.conf'"
         print(system_command_str)
-        os.system(system_command_str)    
+        os.system(system_command_str)
     else:
         system_command_str = "ansible windows -m win_copy -a 'src=" + repo_conf_dir + conf_file_name + " dest=D:\\\\v0.0.0\\\\supervisord.conf'"
         print(system_command_str)
-        os.system(system_command_str) 
+        os.system(system_command_str)
 
 
-# deploy all conf file ,but don't incloud csscand    
+# deploy all conf file ,but don't incloud csscand
 def deploy_conf_file(conf_file_name, *ip):
     if len(ip) > 0:
         # deploy for ip list
-        pass
+        bin_name = conf_file_name[:-5]
+        for ip_str in ip[0]:
+            system_command_str = "ansible " + ip_str + " -m copy -a \"src='" + repo_conf_dir + conf_file_name + "' dest='/opt/cloudscan/conf/"+conf_file_name+"'\" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+            print(system_command_str)
+            os.system(system_command_str)
+            chown_to_program_user(bin_name)
+            ip_str_to_list = []
+            ip_str_to_list.append(ip_str)
+            restart_bin(bin_name, ip_str_to_list)
     else:
         ansible_group = conf_file_name[:-5]
         system_command_str = "ansible " + ansible_group + " -m copy -a \"src='" + repo_conf_dir + conf_file_name + "' dest='/opt/cloudscan/conf/"+conf_file_name+"'\" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
@@ -319,38 +383,104 @@ def remove_csscand_conf_file(conf_file_name, *ip):
         print(system_command_str)
         os.system(system_command_str)
 
+def remove_bin_conf_file(conf_file_name, *ip):
+    if len(ip) > 0:
+        # remove for ip list
+        for ip_str in ip[0]:
+            system_command_str = "ansible " + ip_str + " -m shell -a 'cd /opt/cloudscan/conf/ && rm -f "+conf_file_name+"' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+            print(system_command_str)
+            os.system(system_command_str)
+    else:
+        ansible_group = conf_file_name[:-5]
+        system_command_str = "ansible " + ansible_group + " -m shell -a 'cd /opt/cloudscan/conf/ && rm -f "+conf_file_name+"' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+        print(system_command_str)
+        os.system(system_command_str)
+
+
+def remove_bin(bin_name, *ip):
+    if len(ip) > 0:
+        # remove for ip list
+        for ip_str in ip[0]:
+            system_command_str = "ansible " + ip_str + " -m shell -a 'cd /opt/cloudscan/gobin/ && rm -f "+bin_name+"' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+            print(system_command_str)
+            os.system(system_command_str)
+    else:
+        ansible_group = bin_name
+        system_command_str = "ansible " + ansible_group + " -m shell -a 'cd /opt/cloudscan/gobin/ && rm -f "+bin_name+"' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+        print(system_command_str)
+        os.system(system_command_str)
+
 
 def deploy_service_file(service_file_name, *ip):
+    if linux_engine_list.count(service_file_name[2:-8]) or windows_engine_list.count(service_file_name[2:-8]):
+        ansible_group = service_file_name[2:-8]
+    else:
+        ansible_group = service_file_name[:-8]
+
     if len(ip) > 0:
         # deploy for ip list
         for ip_str in ip[0]:
             system_command_str = "ansible " + ip_str + " -m copy -a \"src='" + repo_systemd_service_dir + service_file_name + "' dest='/usr/lib/systemd/system'\" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
             print(system_command_str)
             os.system(system_command_str)
-            chown_to_program_user(ip_str)
             system_command_str = "ansible " + ip_str + " -m shell -a \" systemctl daemon-reload \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
             print(system_command_str)
             os.system(system_command_str)
             system_command_str = "ansible " + ip_str + " -m shell -a \" systemctl enable " + service_file_name +" \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
             print(system_command_str)
             os.system(system_command_str)
+            ip_str_to_list = []
+            ip_str_to_list.append(ip_str)
+            restart_bin(ansible_group, ip_str_to_list)
     else:
-        if linux_engine_list.count(service_file_name[2:-8]) or windows_engine_list.count(service_file_name[2:-8]):
-            ansible_group = service_file_name[2:-8]
-        else:
-            ansible_group = service_file_name[:-8]
-        
         system_command_str = "ansible " + ansible_group + " -m copy -a \"src='" + repo_systemd_service_dir + service_file_name + "' dest='/usr/lib/systemd/system'\" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
         print(system_command_str)
         os.system(system_command_str)
-        chown_to_program_user(ansible_group)
         system_command_str = "ansible " + ansible_group + " -m shell -a \" systemctl daemon-reload \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
         print(system_command_str)
         os.system(system_command_str)
         system_command_str = "ansible " + ansible_group + " -m shell -a \" systemctl enable " + service_file_name +" \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
         print(system_command_str)
         os.system(system_command_str)
-    
+        restart_bin(ansible_group)
+
+
+def deploy_timer_service_file(service_file_name, *ip):
+
+    if service_file_name[-8:] == ".service":
+        ansible_group = service_file_name[:-8]
+    if service_file_name[-6:] == ".timer":
+        ansible_group = service_file_name[:-6]
+
+    if len(ip) > 0:
+        # deploy for ip list
+        for ip_str in ip[0]:
+            system_command_str = "ansible " + ip_str + " -m copy -a \"src='" + repo_timer_service_dir + service_file_name + "' dest='/usr/lib/systemd/system'\" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+            print(system_command_str)
+            os.system(system_command_str)
+            system_command_str = "ansible " + ip_str + " -m shell -a \" systemctl daemon-reload \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+            print(system_command_str)
+            os.system(system_command_str)
+            system_command_str = "ansible " + ip_str + " -m shell -a \" systemctl enable " + service_file_name +" \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+            print(system_command_str)
+            os.system(system_command_str)
+            ip_str_to_list = []
+            ip_str_to_list.append(ip_str)
+            if service_file_name[-6:] == ".timer":
+                restart_timer_script(service_file_name, ip_str_to_list)
+    else:
+        system_command_str = "ansible " + ansible_group + " -m copy -a \"src='" + repo_timer_service_dir + service_file_name + "' dest='/usr/lib/systemd/system'\" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+        print(system_command_str)
+        os.system(system_command_str)
+        system_command_str = "ansible " + ansible_group + " -m shell -a \" systemctl daemon-reload \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+        print(system_command_str)
+        os.system(system_command_str)
+        system_command_str = "ansible " + ansible_group + " -m shell -a \" systemctl enable " + service_file_name +" \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+        print(system_command_str)
+        os.system(system_command_str)
+        if service_file_name[-6:] == ".timer":
+            restart_timer_script(service_file_name)
+
 
 def remove_csscand_service_file(service_file_name, *ip):
     if len(ip) > 0:
@@ -377,7 +507,34 @@ def remove_csscand_service_file(service_file_name, *ip):
         print(system_command_str)
         os.system(system_command_str)
 
-def deploy_bin_program():
+
+def remove_bin_service_file(service_file_name, *ip):
+    if len(ip) > 0:
+        # remove for ip list
+        for ip_str in ip[0]:
+            system_command_str = "ansible " + ip_str + " -m shell -a 'cd /usr/lib/systemd/system && rm -f "+service_file_name+"' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+            print(system_command_str)
+            os.system(system_command_str)
+            system_command_str = "ansible " + ip_str + " -m shell -a \" systemctl daemon-reload \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+            print(system_command_str)
+            os.system(system_command_str)
+            system_command_str = "ansible " + ip_str + " -m shell -a \" systemctl disable " + service_file_name +" \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+            print(system_command_str)
+            os.system(system_command_str)
+    else:
+        ansible_group = service_file_name[:-8]
+        system_command_str = "ansible " + ansible_group + " -m shell -a 'cd /usr/lib/systemd/system && rm -f "+service_file_name+"' --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+        print(system_command_str)
+        os.system(system_command_str)
+        system_command_str = "ansible " + ansible_group + " -m shell -a \" systemctl daemon-reload \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+        print(system_command_str)
+        os.system(system_command_str)
+        system_command_str = "ansible " + ansible_group + " -m shell -a \" systemctl disable " + service_file_name +" \" --private-key " + ssh_key + "  --become  --become-method=sudo  --become-user=root"
+        print(system_command_str)
+        os.system(system_command_str)
+
+
+def deploy_bin_program(repo_bin_dir, prev_repo_bin_dir):
     # deploy bin program
     repo_bin_list = os.listdir(repo_bin_dir)
     prev_repo_bin_list = os.listdir(prev_repo_bin_dir)
@@ -409,25 +566,51 @@ def deploy_bin_program():
             restart_bin(bin_file)
 
 
+def deploy_timer_script_program(repo_bin_dir, prev_repo_bin_dir):
+    # deploy bin program
+    repo_bin_list = os.listdir(repo_bin_dir)
+    prev_repo_bin_list = os.listdir(prev_repo_bin_dir)
+    for bin_file in repo_bin_list:
+        if bin_file == '.gitignore':
+            continue
+        if prev_repo_bin_list.count(bin_file):
+            print("the bin file had deploy before,we check if it have changed")
+            repo_bin_file_md5 = get_file_md5(repo_bin_dir + bin_file)
+            prev_repo_bin_file_md5 = get_file_md5(prev_repo_bin_dir + bin_file)
+            if repo_bin_file_md5 == prev_repo_bin_file_md5:
+                print("the bin file do not change,we do not need deploy it")
+            else:
+                print(
+                    "the bin file had changed, we need deploy the new version")
+                deploy_timer_script_file(bin_file)
+                restart_timer_script(bin_file[:-3]+".timer")
+        else:
+            print(
+                "the bin file is new file, we do not deploy it before,now we deploy it"
+            )
+            deploy_timer_script_file(bin_file)
+            restart_timer_script(bin_file[:-3]+".timer")
+
+
 def deploy_windows_csscand_conf_file(conf_file_name):
     ansible_group = conf_file_name[8:-5]
     system_command_str = "ansible "+ansible_group+" -m win_copy -a 'src=" + repo_conf_dir +"conf/"+ conf_file_name + " dest=D:\\\\v0.0.0\\\\conf\\\\"+conf_file_name+"'"
     print(system_command_str)
     os.system(system_command_str)
-    restart_windows_bin(ansible_group)    
+    restart_windows_bin(ansible_group)
 
 
 def remove_windows_csscand_conf_file(conf_file_name):
     ansible_group = conf_file_name[8:-5]
     system_command_str = "ansible "+ansible_group+" -m win_shell -a \"Remove-Item -Path 'D:\\\\v0.0.0\\\\conf\\\\"+conf_file_name+"'\""
     print(system_command_str)
-    os.system(system_command_str)  
-    
+    os.system(system_command_str)
+
     # here, must remove prev_repo_dir's windows csscand conf file,so in deploy stage, the file will consider the new file and deploy(but in this moment,the ansible machine list is not incloud had removed machine)
     system_command_str = "cd "+prev_repo_conf_dir+"conf && rm -f "+conf_file_name+""
     print(system_command_str)
     os.system(system_command_str)
-    
+
 
 def deploy_csscand_conf(repo_conf_dir, prev_repo_conf_dir):
     repo_conf_list = os.listdir(repo_conf_dir)
@@ -446,7 +629,7 @@ def deploy_csscand_conf(repo_conf_dir, prev_repo_conf_dir):
                     deploy_csscand_conf_file(conf_file)
                 if windows_engine_list.count(engine_name):
                     deploy_windows_csscand_conf_file(conf_file)
-                
+
         else:
             print(
                 "the conf file "+conf_file+" is new file, we do not deploy it before,now we deploy it"
@@ -455,9 +638,9 @@ def deploy_csscand_conf(repo_conf_dir, prev_repo_conf_dir):
             if linux_engine_list.count(engine_name):
                 deploy_csscand_conf_file(conf_file)
             if windows_engine_list.count(engine_name):
-                deploy_windows_csscand_conf_file(conf_file) 
-                        
-            
+                deploy_windows_csscand_conf_file(conf_file)
+
+
 def deploy_conf(repo_conf_dir, prev_repo_conf_dir):
     repo_conf_list = os.listdir(repo_conf_dir)
     prev_repo_conf_list = os.listdir(prev_repo_conf_dir)
@@ -481,12 +664,12 @@ def deploy_conf(repo_conf_dir, prev_repo_conf_dir):
             else:
                 print("the conf file "+conf_file+"had changed, we need deploy the new version")
                 deploy_conf_file(conf_file)
-                
+
         else:
             print(
                 "the conf file "+conf_file+"is new file, we do not deploy it before,now we deploy it"
             )
-            deploy_conf_file(conf_file)           
+            deploy_conf_file(conf_file)
 
 
 def deploy_systemd_service(repo_systemd_service_dir, prev_repo_systemd_service_dir):
@@ -502,13 +685,34 @@ def deploy_systemd_service(repo_systemd_service_dir, prev_repo_systemd_service_d
             else:
                 print("the service file "+service_file+"had changed, we need deploy the new version")
                 deploy_service_file(service_file)
-                
+
         else:
             print(
                 "the service file "+service_file+"is new file, we do not deploy it before,now we deploy it"
             )
-            deploy_service_file(service_file)        
-            
+            deploy_service_file(service_file)
+
+
+def deploy_timer_service(repo_systemd_service_dir, prev_repo_systemd_service_dir):
+    repo_systemd_service_list = os.listdir(repo_systemd_service_dir)
+    prev_repo_systemd_service_list = os.listdir(prev_repo_systemd_service_dir)
+    for service_file in repo_systemd_service_list:
+        if prev_repo_systemd_service_list.count(service_file):
+            print("the service file "+service_file+" had deploy before,we check if it have changed")
+            repo_service_file_md5 = get_file_md5(repo_systemd_service_dir + service_file)
+            prev_repo_service_file_md5 = get_file_md5(prev_repo_systemd_service_dir + service_file)
+            if repo_service_file_md5 == prev_repo_service_file_md5:
+                print("the service file "+service_file+"do not change,we do not need deploy it")
+            else:
+                print("the service file "+service_file+"had changed, we need deploy the new version")
+                deploy_timer_service_file(service_file)
+
+        else:
+            print(
+                "the service file "+service_file+"is new file, we do not deploy it before,now we deploy it"
+            )
+            deploy_timer_service_file(service_file)
+
 
 def deploy_from_hosts(hosts_dict, prev_hosts_dict):
     for key, value in hosts_dict.items():
@@ -519,7 +723,7 @@ def deploy_from_hosts(hosts_dict, prev_hosts_dict):
             # now, our deploy mode is don't add new engine in new machine,just add engine in old machine,
             # so, we don't deploy cscand bin file.(#deploy_linux_engine_csscand("csscand", key))
             # and,todo support add new engine on new machine. in this monment we must collect all ip from
-            # hosts and check if the engine group's ip in there 
+            # hosts and check if the engine group's ip in there
             if key.find('cs') == -1:
                 print(key)
                 if linux_engine_list.count(key):
@@ -552,13 +756,18 @@ def deploy_from_hosts(hosts_dict, prev_hosts_dict):
                 deploy_service_file("cs"+key+".service", ip_list)
                 deploy_bin("csscand", ip_list)
                 restart_bin(key, ip_list)
-            else:
-                if windows_engine_list.count(key):
-                    # now windows deploy all
-                    deploy_windows_csscand_conf_file("csscand-"+key+".yaml")
-                    deploy_windows_conf_file("supervisord.conf", key)
-                    deploy_windows_bin("csscand.exe", key)
-                    restart_windows_bin(key)
+            if windows_engine_list.count(key):
+                # now windows deploy all
+                deploy_windows_csscand_conf_file("csscand-"+key+".yaml")
+                deploy_windows_conf_file("supervisord.conf", key)
+                deploy_windows_bin("csscand.exe", key)
+                restart_windows_bin(key)
+            if bin_list.count(key):
+                make_online_project_dir(ip_list)
+                deploy_conf_file(key + ".yaml", ip_list)
+                deploy_service_file(key+".service", ip_list)
+                deploy_bin(key, ip_list)
+                restart_bin(key, ip_list)
 
 
 def remove_from_hosts(hosts_dict, prev_hosts_dict):
@@ -581,14 +790,26 @@ def remove_from_hosts(hosts_dict, prev_hosts_dict):
                 stop_csscand_engine_bin(key, ip_list)
                 remove_csscand_conf_file("csscand-"+key+".yaml", ip_list)
                 remove_csscand_service_file("cs"+key+".service", ip_list)
-                pass
-            else:
-                if windows_engine_list.count(key):
-                    # now windows remove all,and deploy all new itme in deploy stage
-                    stop_windows_bin(key)
-                    remove_windows_csscand_conf_file("csscand-"+key+".yaml")             
-        
-        
+            if windows_engine_list.count(key):
+                # now windows remove all,and deploy all new item in deploy stage
+                stop_windows_bin(key)
+                remove_windows_csscand_conf_file("csscand-"+key+".yaml")
+            if bin_list.count(key):
+                stop_bin(key, ip_list)
+                remove_bin(key, ip_list)
+                remove_bin_conf_file(key+".yaml", ip_list)
+                remove_bin_service_file(key+".service", ip_list)
+
+
+
+def deploy_timer_script():
+    all_linux_list = get_entity_from_hosts(hosts_dir, 'all-linux')
+    make_online_project_dir(all_linux_list)
+    deploy_timer_service(repo_timer_service_dir,prev_repo_timer_service_dir)
+    deploy_timer_script_program(repo_timer_script_dir, prev_repo_timer_script_dir)
+
+
+
 @app.route("/", methods=["POST"])
 def deployment():
     if request.method == 'POST':
@@ -619,12 +840,12 @@ def deployment():
             print('maybe no such dir we have deleted .git')
             print(e)
 
-        
+
         # deploy remove engine from machine ,the remove action must before copy ansible hosts
         hosts_dict = get_hosts_dict(hosts_dir)
         prev_hosts_dict = get_hosts_dict(prev_hosts_dir)
         remove_from_hosts(hosts_dict, prev_hosts_dict)
-        
+
         print('after remove from hosts, we can copy the new ansible hosts to /etc/ansible/hosts,so we have all new resource group')
         os.system("sudo cp "+repo_dir+"hosts /etc/ansible/hosts")
 
@@ -632,17 +853,20 @@ def deployment():
         hosts_dict = get_hosts_dict(hosts_dir)
         prev_hosts_dict = get_hosts_dict(prev_hosts_dir)
         deploy_from_hosts(hosts_dict, prev_hosts_dict)
-        
+
         # deploy conf first
         deploy_conf(repo_conf_dir, prev_repo_conf_dir)
-        
+
         # deploy systemd servie
         deploy_systemd_service(repo_systemd_service_dir,prev_repo_systemd_service_dir)
-        
+
         # deploy bin program
-        deploy_bin_program()
-        
-        
+        deploy_bin_program(repo_bin_dir, prev_repo_bin_dir)
+
+        # deploy timer script
+        deploy_timer_script()
+
+
         # commit_log =repo.git.log()
         # log_list = commit_log.split("\n")
         # for item in log_list:
@@ -654,4 +878,3 @@ def deployment():
         send_wechat_robot_message("deployment done")
 
         return 'deploy successed'
-
