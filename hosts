@@ -71,3 +71,15 @@ bin-csinterface
 bin-csagg
 bin-cspost
 bin-cswatch
+
+[script-online-deployment]
+online_script_dir-/opt/cloudscan/script/
+
+[clean-var-log]
+1.1.1.1
+2.2.2.2
+3.3.3.3
+4.4.4.4
+33.33.33.33
+44.44.44.44
+55.55.55.55
