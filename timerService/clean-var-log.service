@@ -1,0 +1,11 @@
+# /usr/lib/systemd/system/clean-var-log.service
+[Unit]
+Description=/var/log/message clean service
+Wants=clean-var-log.timer
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sh /opt/cloudscan/script/clean-var-log.sh
+
+[Install]
+WantedBy=multi-user.target
