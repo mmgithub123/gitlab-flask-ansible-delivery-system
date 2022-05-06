@@ -1,0 +1,11 @@
+# /usr/lib/systemd/system/clean-var-log.timer
+[Unit]
+Description=/var/log/message clean timer
+Requires=clean-var-log.service
+
+[Timer]
+Unit=clean-var-log.service
+OnActiveSec=1d
+
+[Install]
+WantedBy=timers.target
