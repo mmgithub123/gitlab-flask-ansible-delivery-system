@@ -64,3 +64,33 @@ kkpost.yaml
 
 
 
+---------------------------------------------------------------------------------------------------------------------
+
+统一的定时任务脚本管理，用gitops的方法管理多集群的定时任务。
+使用systemd 的timer单元服务
+配合ansible  hosts声明：
+[script-online-deployment]
+online_script_dir-/opt/cloudscan/script/
+
+[clean-var-log]
+1.1.1.1
+2.2.2.2
+3.3.3.3
+4.4.4.4
+33.33.33.33
+44.44.44.44
+55.55.55.55
+
+例如，
+实现集群内所有机器系统日志的清理，只保留最近一周的日志，定期删除一周之前的日志。
+程序在：
+/timerScript/clean-var-log.sh
+systemd timer+service 实现的定时任务配置文件在：
+/timerService/clean-var-log.service
+/timerService/clean-var-log.timer
+
+python发布程序/delivery.py  会根据hosts声明在每台机器上依照标准化创建/opt/cloudscan/script/目录，并把脚本程序clean-var-log.sh放入这个目录。
+然后根据hosts声明在每台机器将clean-var-log.service和clean-var-log.timer放入/usr/lib/systemd/system目录，然后用systemctl启动clean-var-log.timer。
+这样就实现了集群内每一台机器的定时任务程序管理。
+
+根据需要，扩展其他任务时，只需在git内建立相应的文件，更新hosts声明即可。实现gitops+声明式发布。
